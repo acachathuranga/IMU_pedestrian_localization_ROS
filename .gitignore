@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+*.DS_Store
+
+*.tar.gz
+*.eps
+*.mat
+*.npy
+
+# All data files in ros_data except one example file
+scripts/ros_data/*
+!scripts/ros_data/2020-03-23-17-15-36.csv
+results/
+.vscode/
+
