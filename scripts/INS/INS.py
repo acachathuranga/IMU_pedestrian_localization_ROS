@@ -53,6 +53,11 @@ class INS():
         """
         self.x, self.q, self.P = self.Localizer.init() #initialize state
     
+    def initialize_pose(self, position=(0.0, 0.0, 0.0), orientation=(0.0, 0.0, 0.0)):
+        self.x, self.q , self.P = self.Localizer.init_variables(position=position, attitude=orientation)
+        self.x[0:3] = position
+        self.x[6:9] = orientation
+
     def input_window(self, imu_reading):
         """ Insert and update input data window
 
@@ -70,7 +75,7 @@ class INS():
         return self.x_in
 
         
-    def baseline(self, imu_reading, G=5e8, zv=None):
+    def baseline(self, imu_reading, G=5e8, zv=None, return_zv=False):
         """ Estimates IMU odometry and returns current state
 
             :param imu_reading: ROS sensor_msgs.Imu message
@@ -98,7 +103,10 @@ class INS():
             dt = time - prev_time    # dt = time difference between last and current readings
         else:
             # Input data window not sufficient for processing
-            return self.x
+            if return_zv:
+                return self.x, zv
+            else:
+                return self.x
 
         x_data = imudata[-1][1:]
 
@@ -126,7 +134,10 @@ class INS():
         self.q = q
         self.P = P
 
-        return self.x
+        if return_zv:
+            return self.x, zv
+        else:
+            return self.x
     
 
 if __name__ == '__main__':
