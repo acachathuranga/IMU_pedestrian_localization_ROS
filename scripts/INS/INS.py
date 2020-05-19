@@ -49,10 +49,21 @@ class INS():
         self.Localizer = Localizer(self.config)
 
     def init(self):
-        """ Initialize state variables x, q, P
+        """ Initialize state variables x, q, P with initial position 0,0 and orientation 0,0,0
         """
         self.x, self.q, self.P = self.Localizer.init() #initialize state
+        self.x_in.clear()
     
+    def init_pose(self, position=(0.0, 0.0, 0.0), orientation=(0.0, 0.0, 0.0)):
+        """ Initializes position and orientation (x, q). Resets covariance matrix (P)
+
+            :param position: Initial position x,y,z coordinates
+            :param orientation: Initial orientation euler angles in roll, pitch, yaw format (xyz)
+            :return None
+        """
+        self.x, self.q , self.P = self.Localizer.init_variables(position=position, attitude=orientation)
+        self.x_in.clear()
+
     def input_window(self, imu_reading):
         """ Insert and update input data window
 
@@ -70,7 +81,7 @@ class INS():
         return self.x_in
 
         
-    def baseline(self, imu_reading, G=5e8, zv=None):
+    def baseline(self, imu_reading, G=5e8, zv=None, return_zv=False):
         """ Estimates IMU odometry and returns current state
 
             :param imu_reading: ROS sensor_msgs.Imu message
@@ -98,7 +109,10 @@ class INS():
             dt = time - prev_time    # dt = time difference between last and current readings
         else:
             # Input data window not sufficient for processing
-            return self.x
+            if return_zv:
+                return self.x, zv
+            else:
+                return self.x
 
         x_data = imudata[-1][1:]
 
@@ -126,7 +140,10 @@ class INS():
         self.q = q
         self.P = P
 
-        return self.x
+        if return_zv:
+            return self.x, zv
+        else:
+            return self.x
     
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@
 # sudo apt-get install python3-yaml
 # sudo pip3 install rospkg catkin_pkg
 import sys 
-from INS.INS import INS
+from pedestrian_localizer import pedestrian_localizer
 
 import rospy
 from sensor_msgs.msg import Imu
@@ -14,15 +14,41 @@ import math
 from INS.tools.csv_parser import readCSV, readROSBagCSV, writeCSV 
 from INS.tools.data_visualizer import show3Dposition, show2Dposition, interactive2Dposition_init, update2Dposition
 from INS.tools.geometry_utils import rotateOutput
+from INS.tools.geometry_helpers import euler2quat
+
+def publish_odom(x, header):
+    """ Publish Odometry Message
+
+        :param x: State
+                       pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+    """
+    global x_out
+    if x is not None:
+        x_out.append([x, header])
+
+        x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw = x
+        qw, qx, qy, qz =  euler2quat(roll, pitch, yaw, axes='sxyz')
+        odom = Odometry()
+        odom.header = header
+        odom.pose.pose.position.x = x
+        odom.pose.pose.position.y = y
+        odom.pose.pose.position.z = z 
+        odom.pose.pose.orientation.x = qx
+        odom.pose.pose.orientation.y = qy
+        odom.pose.pose.orientation.z = qz
+        odom.pose.pose.orientation.w = qw
+        odom.twist.twist.linear.x = vel_x
+        odom.twist.twist.linear.y = vel_y
+        odom.twist.twist.linear.z = vel_z
+        odom_pub.publish(odom)
+
+
 
 if __name__ == '__main__':
     rospy.init_node('imu_odometry_publisher', anonymous=True)
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
 
-    global ins
-    ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="shoe", W=5)
-    ins.init()
-    G_opt_shoe = 2.5e8
+    localizer = pedestrian_localizer(callback=publish_odom)
 
     print ("IMU Odometry Publisher")
 
@@ -44,12 +70,10 @@ if __name__ == '__main__':
     print ("Input shape: ", ros_data.shape)
     # Initialize odometry msg
     odom = Odometry()
-
+    x_out = []
     data = Imu()
-    x_out = np.zeros((ros_data.shape[0], 9))
-
     for i, imu_reading in enumerate(ros_data):
-        # Crease IMU Message
+        # Create IMU Message
         data.header.stamp.secs = int(imu_reading[0] * 1e-9)
         data.header.stamp.nsecs = int(imu_reading[0] % 1e9)
         data.linear_acceleration.x = imu_reading[1]
@@ -60,31 +84,20 @@ if __name__ == '__main__':
         data.angular_velocity.z = imu_reading[6]
 
         # Estimate Odometry
-        x_out[i,:] = ins.baseline(imu_reading=data, G=G_opt_shoe)
-
-        # Create Odometry Message
-        odom.header.stamp.secs = int(imu_reading[0] * 1e-9)
-        data.header.stamp.nsecs = int(imu_reading[0] % 1e9)
-        odom.header.frame_id = "imu"
-        odom.pose.pose.position.x = x_out[i,0]
-        odom.pose.pose.position.y = x_out[i,1]
-        odom.pose.pose.position.z = x_out[i,2]
-        odom.pose.pose.orientation.x = x_out[i,6]
-        odom.pose.pose.orientation.y = x_out[i,7]
-        odom.pose.pose.orientation.z = x_out[i,8]
-
-        odom_pub.publish(odom)
-
-    output = np.zeros((x_out.shape[0], 11))
+        localizer.update_odometry(data)
+    
+    output = np.zeros((len(x_out), 10))
     output[:,0] = ros_data[:,0]   # Time Stamps
-    # Rotate and generate output
-    output[:,1:11] = rotateOutput(x_out, roll=math.pi, pitch=0, yaw=0)
 
+    # Rotate and generate output
+    for i in range(len(x_out)):
+        output[i,1:10] = rotateOutput(x_out[i][0], roll=math.pi, pitch=0, yaw=0)
 
     writeCSV(output, result_dir+fileName+'.csv', fields=['time', 
                                                         'x_position', 'y_position', 'z_position', 
-                                                        'roll', 'pitch', 'yaw',
-                                                        'quaternion_w', 'quaternion_x', 'quaternion_y', 'quaternion_z'])
+                                                        'vel_x', 'vel_y', 'vel_z',
+                                                        'roll', 'pitch', 'yaw',])
     show2Dposition(output[:,1:], result_dir+fileName)
 
     rospy.loginfo("Execution Complete")
+
