@@ -1,0 +1,16 @@
+<launch>	
+  <!-- Launch husky odom to tf broadcaster -->
+  <node pkg="imu_odometry" type="main.py" name="imu_odometry_publisher" output="screen">
+      <!-- IMU Topic -->
+      <param name="imu_topic" value='footIMU/IMU' />
+      <!-- Calibrate yaw angle according to initial walking direction -->
+      <param name="calibrate_yaw" value='False' />
+      <!-- Calibration will be performed considering readings upto this many walking steps -->
+      <!-- Applies both to roll-pitch calibration and yaw calibration -->	
+      <param name="calibration_steps" value='2' />	
+  </node>
+</launch>
+
+
+
+    

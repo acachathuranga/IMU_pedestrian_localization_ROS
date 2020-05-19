@@ -1,16 +1,19 @@
 import numpy as np
 from .geometry_helpers import euler2quat, quat2euler, mat2euler, euler2mat
 
-def rotateOutput(x, roll, pitch, yaw):
-    """Given a state matrix and a rotation, returns a rotated state matrix
+def rotateOutput(x, roll, pitch, yaw, axes='sxyz'):
+    """Given a state vector and a rotation, returns a rotated state vector
 
-    :param x: State matrix [x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw]
+    :param x: State vector [x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw]
     :param rotation: Euler angle rotation [roll, pitch, yaw]
+    :param axes : str, optional
+        Axis specification; one of 24 axis sequences as string or encoded
+        tuple - e.g. ``sxyz`` (the default).
 
-    :return Rotated State matrix [x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw]
+    :return Rotated State vector [x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw]
     """
 
-    rotationMat = euler2mat(roll, pitch, yaw, 'sxyz')
+    rotationMat = euler2mat(roll, pitch, yaw, axes)
 
     x_rotated = np.zeros((9))
 

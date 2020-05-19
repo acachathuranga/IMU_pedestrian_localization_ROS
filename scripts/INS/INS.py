@@ -49,14 +49,20 @@ class INS():
         self.Localizer = Localizer(self.config)
 
     def init(self):
-        """ Initialize state variables x, q, P
+        """ Initialize state variables x, q, P with initial position 0,0 and orientation 0,0,0
         """
         self.x, self.q, self.P = self.Localizer.init() #initialize state
+        self.x_in.clear()
     
-    def initialize_pose(self, position=(0.0, 0.0, 0.0), orientation=(0.0, 0.0, 0.0)):
+    def init_pose(self, position=(0.0, 0.0, 0.0), orientation=(0.0, 0.0, 0.0)):
+        """ Initializes position and orientation (x, q). Resets covariance matrix (P)
+
+            :param position: Initial position x,y,z coordinates
+            :param orientation: Initial orientation euler angles in roll, pitch, yaw format (xyz)
+            :return None
+        """
         self.x, self.q , self.P = self.Localizer.init_variables(position=position, attitude=orientation)
-        self.x[0:3] = position
-        self.x[6:9] = orientation
+        self.x_in.clear()
 
     def input_window(self, imu_reading):
         """ Insert and update input data window

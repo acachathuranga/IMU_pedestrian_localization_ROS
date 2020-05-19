@@ -61,7 +61,7 @@ class Localizer():
         
         Rot_out = quat2mat(q_out)   #get rotation matrix from quat
         acc_n = Rot_out.dot(imu[0:3])       #transform acc to navigation frame,  
-        acc_n = acc_n + np.array([0,0,self.config["g"]])   #removing gravity (by substracting)
+        acc_n = acc_n - np.array([0,0,self.config["g"]])   #removing gravity (by substracting)
         """ Z axis is considered as pointing upwards. Hence gravity is positive acceleration """
 
         x_out[3:6] += dt*acc_n #velocity update
