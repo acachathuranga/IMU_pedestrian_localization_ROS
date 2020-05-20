@@ -13,7 +13,8 @@ Some parts of the EKF algorithm were derived from https://github.com/utiasSTARS/
   
 **Install following packages** <br /> 
 >      sudo apt-get install python3-yaml
->      sudo pip3 install rospkg catkin_pkg
+>      sudo apt-get install python3-tk
+>      sudo pip3 install rospkg catkin_pkg numpy matplotlib
 
 #### Subscribed Topics
 - sensor_msgs/IMU : /footIMU/IMU
