@@ -17,13 +17,15 @@ class Localizer():
         """
         self.config = config
 
-    def init_variables(self):
+    def init_variables(self, position=(0,0,0), attitude=(0,0,0)):
         if (self.config['detector'] == "shoe"):
             x = np.zeros((9))   # initialize state window
             q = np.zeros((4))   # initialize quaternion window
 
-            # TODO : Init heading
-            roll, pitch, heading = (0.0, 0.0, 0.0)
+            x[0:3] = position
+            # Note: Since initial heading is explicitly set, Initial odometry will have a slight Z plane drift
+            x[6:9] = attitude
+            roll, pitch, heading = attitude
             q = euler2quat(roll, pitch, heading, 'sxyz')
 
             P = np.zeros((9,9)) #initial covariance matrix P
@@ -59,15 +61,16 @@ class Localizer():
         
         Rot_out = quat2mat(q_out)   #get rotation matrix from quat
         acc_n = Rot_out.dot(imu[0:3])       #transform acc to navigation frame,  
-        acc_n = acc_n + np.array([0,0,self.config["g"]])   #removing gravity (by adding)
-        
+        acc_n = acc_n - np.array([0,0,self.config["g"]])   #removing gravity (by substracting)
+        """ Z axis is considered as pointing upwards. Hence gravity is positive acceleration """
+
         x_out[3:6] += dt*acc_n #velocity update
-        x_out[0:3] += dt*x_out[3:6] +0.5*np.power(dt,2)*acc_n #position update
+        # x_out[0:3] += dt*x_out[3:6] +0.5*np.power(dt,2)*acc_n #position update
+        x_out[0:3] += dt*xin[3:6] +0.5*np.power(dt,2)*acc_n #position update
         
         return x_out, q_out, Rot_out  
 
     def state_update(self, imu,q, dt):
-#        return F,G
         F = np.identity(9)
         F[0:3,3:6] = dt*np.identity(3)
 
@@ -79,8 +82,8 @@ class Localizer():
         G = np.zeros((9,6))
         G[3:6,0:3] = dt*Rot
         G[6:9,3:6] = -dt*Rot
-       
         return F,G
+
     def corrector(self, x_check, P_check, Rot):
         eye3 = np.identity(3)
         eye9 = np.identity(9)
