@@ -1,8 +1,12 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3.6
 
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
 # sudo pip3 install rospkg catkin_pkg
+import os
+# Constrain OPENBLAS Multithreading (To solve Numpy Performance Issues)
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
 import rospy
 import sys
 from sensor_msgs.msg import Imu 

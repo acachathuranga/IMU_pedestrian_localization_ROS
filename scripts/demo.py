@@ -52,8 +52,8 @@ if __name__ == '__main__':
 
     print ("IMU Odometry Publisher")
 
-    data_dir = "/home/achala/catkin_ws/src/imu_odometry/scripts/ros_data/"
-    result_dir = "/home/achala/catkin_ws/src/imu_odometry/scripts/results/"
+    data_dir = "./ros_data/"
+    result_dir = "./results/"
     fileName = "2020-03-23-17-15-36"
 
     fieldNames= ["field.header.stamp", 
