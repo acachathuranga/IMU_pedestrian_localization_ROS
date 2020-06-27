@@ -52,13 +52,17 @@ def imu_odometry():
     calibrate_yaw = rospy.get_param(rospy.get_name()+'/calibrate_yaw', True)
     calibration_steps = rospy.get_param(rospy.get_name()+'/calibration_steps', True)
     imu_topic = rospy.get_param(rospy.get_name()+'/imu_topic', "/vectornav/IMU")
+    yaw_pub_method = rospy.get_param(rospy.get_name()+ '/yaw_pub_method', 'Stable')
+    yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', 'Stable')
 
     global localizer, odom_pub
-    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, callback=publish_odom)
+    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
 
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
     rospy.Subscriber(imu_topic, Imu, callback)
     print ("Subscribed to: ", imu_topic)
+    print ("Human Orientation Approximation Method: ", yaw_pub_method)
+    print ("Human Orientation Latch: ", yaw_pub_latch)
     
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
