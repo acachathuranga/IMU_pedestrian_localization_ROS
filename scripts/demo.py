@@ -3,16 +3,21 @@
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
 # sudo pip3 install rospkg catkin_pkg
-import sys 
-from pedestrian_localizer import pedestrian_localizer
 
+import os
+# Constrain OPENBLAS Multithreading (To solve Numpy Performance Issues)
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+import sys 
+import rospkg
+from pedestrian_localizer import pedestrian_localizer
 import rospy
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 import numpy as np
 import math
 from INS.tools.csv_parser import readCSV, readROSBagCSV, writeCSV 
-from INS.tools.data_visualizer import show3Dposition, show2Dposition, interactive2Dposition_init, update2Dposition
+from INS.tools.data_visualizer import show3Dposition, show2Dposition, interactive2Dposition_init, update2Dposition, printProgressBar
 from INS.tools.geometry_utils import rotateOutput
 from INS.tools.geometry_helpers import euler2quat
 
@@ -43,61 +48,78 @@ def publish_odom(x, header):
         odom_pub.publish(odom)
 
 
-
 if __name__ == '__main__':
+    ########## Parameters ###########
+    fileName = "human_2020-07-01-15-27-07" # CSV file name without extension
+
+    calibrate_yaw = False
+    calibration_steps = 1
+    yaw_pub_method = 'Stable'  # 'Real', 'Zupt', 'Stable'
+    yaw_pub_latch = True 
+
+    print ("IMU Odometry Publisher")
+    print("Demo: " + fileName)
+
+    ########## Initialization ###########
     rospy.init_node('imu_odometry_publisher', anonymous=True)
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
 
-    localizer = pedestrian_localizer(callback=publish_odom)
+    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
 
-    print ("IMU Odometry Publisher")
+    package_path = rospkg.RosPack().get_path('imu_odometry')
+    data_dir = os.path.join(package_path, 'data')
+    result_dir = os.path.join(package_path, 'results')
 
-    data_dir = "./ros_data/"
-    result_dir = "./results/"
-    fileName = "2020-03-23-17-15-36"
-
-    fieldNames= ["field.header.stamp", 
+    ########## Reading IMU Data ##########
+    fieldNames= ["field.header.seq", "field.header.stamp", "field.header.frame_id",
                     "field.linear_acceleration.x", "field.linear_acceleration.y", "field.linear_acceleration.z",
                     "field.angular_velocity.x", "field.angular_velocity.y", "field.angular_velocity.z"]
-    dataTypes = [int, float, float, float, float, float, float]
+    dataTypes = [int, int, 'U20', float, float, float, float, float, float]
 
-    status, userData = readROSBagCSV(data_dir+fileName+'.csv', fields=fieldNames, dtype=dataTypes)
-    ros_data = userData.view((float, len(userData.dtype.names)))
-    ros_data[:,0] = userData['field.header.stamp']
-    
-    print("SUTD Demo: " + fileName)
+    status, userData = readROSBagCSV(os.path.join(data_dir, fileName+'.csv'), fields=fieldNames, dtype=dataTypes)
 
-    print ("Input shape: ", ros_data.shape)
-    # Initialize odometry msg
+    # ros_data = userData.view((float, len(userData.dtype.names)))
+    # ros_data[:,0] = userData['field.header.stamp']
+
+    dataSteps = len(userData['field.header.stamp'])
+    print ("Input data steps: ", dataSteps)
+
+    ########## Generate Path ###########
     odom = Odometry()
     x_out = []
     data = Imu()
-    for i, imu_reading in enumerate(ros_data):
-        # Create IMU Message
-        data.header.stamp.secs = int(imu_reading[0] * 1e-9)
-        data.header.stamp.nsecs = int(imu_reading[0] % 1e9)
-        data.linear_acceleration.x = imu_reading[1]
-        data.linear_acceleration.y = imu_reading[2]
-        data.linear_acceleration.z = imu_reading[3]
-        data.angular_velocity.x = imu_reading[4]
-        data.angular_velocity.y = imu_reading[5]
-        data.angular_velocity.z = imu_reading[6]
+  
+    for i in range (dataSteps):
+        data.header.seq = int(userData['field.header.seq'][i])
+        data.header.stamp.secs = int(userData['field.header.stamp'][i] * 1e-9)
+        data.header.stamp.nsecs = int(userData['field.header.stamp'][i] % 1e9)
+        data.header.frame_id = userData['field.header.frame_id'][i]
+        data.linear_acceleration.x = userData['field.linear_acceleration.x'][i]
+        data.linear_acceleration.y = userData['field.linear_acceleration.y'][i]
+        data.linear_acceleration.z = userData['field.linear_acceleration.z'][i]
+        data.angular_velocity.x = userData['field.angular_velocity.x'][i]
+        data.angular_velocity.y = userData['field.angular_velocity.y'][i]
+        data.angular_velocity.z = userData['field.angular_velocity.z'][i]
 
         # Estimate Odometry
         localizer.update_odometry(data)
+        printProgressBar(i, dataSteps, 'Progress', 'Complete', length=50)
     
     output = np.zeros((len(x_out), 10))
-    output[:,0] = ros_data[:,0]   # Time Stamps
+    output[:,0] = userData['field.header.stamp']   # Time Stamps
 
     # Rotate and generate output
     for i in range(len(x_out)):
         output[i,1:10] = rotateOutput(x_out[i][0], roll=math.pi, pitch=0, yaw=0)
+        # output[i,1:10] = x_out[i][0]
+    
 
-    writeCSV(output, result_dir+fileName+'.csv', fields=['time', 
+    writeCSV(output, os.path.join(result_dir, fileName+'.csv'), fields=['time', 
                                                         'x_position', 'y_position', 'z_position', 
                                                         'vel_x', 'vel_y', 'vel_z',
                                                         'roll', 'pitch', 'yaw',])
-    show2Dposition(output[:,1:], result_dir+fileName)
+    # show2Dposition(output[:,1:], result_dir+fileName)
+    # show3Dposition(output[:,1:])
 
     rospy.loginfo("Execution Complete")
 

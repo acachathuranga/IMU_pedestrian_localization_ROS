@@ -1,4 +1,5 @@
 import rospy
+import copy
 import numpy as np
 import math
 from INS.INS import INS
@@ -72,7 +73,8 @@ class pedestrian_localizer():
                      zv
                         True / False
         """
-        G_opt_shoe = 2.5e8
+        # G_opt_shoe = 2.5e8
+        G_opt_shoe = 8e8
         if return_zv:
             x, zv = self.ins.baseline(imu_reading=imu_reading, G=G_opt_shoe, return_zv=True)
             return x, zv
@@ -141,7 +143,7 @@ class pedestrian_localizer():
             Roll, Pitch angles are calculated perpendicular to gravity vector
             Yaw angle is caculated according to the direction of initial motion
         """
-        self.calibration_readings.append(imu_reading)
+        self.calibration_readings.append(copy.deepcopy(imu_reading))
 
         # Start calibration if calibration step count has reached
         if (self.step_count >= self.calibration_steps):
@@ -170,10 +172,10 @@ class pedestrian_localizer():
 
             # Recalculating previous odometry
             for reading in self.calibration_readings:
-                x, zv = self.update_foot_state(reading, return_zv=True)
-                status, x = self.update_human_yaw(x, zv)
+                x_, zv = self.update_foot_state(reading, return_zv=True)
+                status, x_ = self.update_human_yaw(x_, zv)
                 if status and (self.callback is not None):
-                    self.callback(x, reading.header)
+                    self.callback(x_, reading.header)
 
             # Calibration complete
             print ("Calibration Successfull")

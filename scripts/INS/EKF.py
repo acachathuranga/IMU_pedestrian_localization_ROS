@@ -65,8 +65,8 @@ class Localizer():
         """ Z axis is considered as pointing upwards. Hence gravity is positive acceleration """
 
         x_out[3:6] += dt*acc_n #velocity update
-        # x_out[0:3] += dt*x_out[3:6] +0.5*np.power(dt,2)*acc_n #position update
-        x_out[0:3] += dt*xin[3:6] +0.5*np.power(dt,2)*acc_n #position update
+        # x_out[0:3] += dt*x_out[3:6] + 0.5*np.power(dt,2)*acc_n #position update
+        x_out[0:3] += dt*xin[3:6] + 0.5*np.power(dt,2)*acc_n #position update
         
         return x_out, q_out, Rot_out  
 
@@ -94,7 +94,7 @@ class Localizer():
         q=mat2quat(Rot)   
         dx = K.dot(z) 
         x_check += dx  ###inject position and velocity error
-         
+
         omega[0:3,0:3] = [[0,-dx[8], dx[7]],[dx[8],0,-dx[6]],[-dx[7],dx[6],0]] 
         Rot = (eye3+omega).dot(Rot)
         q = mat2quat(Rot)

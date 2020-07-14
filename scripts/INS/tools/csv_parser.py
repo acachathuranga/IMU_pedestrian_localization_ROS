@@ -64,6 +64,8 @@ def readROSBagCSV (fileName, fields = None, dtype=None):
 
     :param fileName: Name of the file to be read
     :param fields: List of values to read from the file. If not provided, will read all fields
+    :param dtype: Numpy dtype of each data column, for type conversion. If not provided, all data  columns 
+                    will be returned as S20 (20 Character String Fields)
     :return [status, data]
             Status -  Boolean value Success / Fail status of reading the file (True = Success)
             data - Numpy structured array of requested data
@@ -133,7 +135,7 @@ def readROSBagCSV (fileName, fields = None, dtype=None):
             #dataMat[fieldName] = np.asarray(data[fieldName], dataType)   
             dataMat[fieldName] = data[fieldName].astype(dataType)
         data = dataMat
-        
+
     return True, data
 
 def writeCSV(data, fileName, fields=None):

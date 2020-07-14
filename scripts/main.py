@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3.5
 
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
@@ -50,10 +50,10 @@ def imu_odometry():
     rospy.init_node('imu_odometry_publisher', anonymous=True)
 
     calibrate_yaw = rospy.get_param(rospy.get_name()+'/calibrate_yaw', True)
-    calibration_steps = rospy.get_param(rospy.get_name()+'/calibration_steps', True)
+    calibration_steps = rospy.get_param(rospy.get_name()+'/calibration_steps', 5)
     imu_topic = rospy.get_param(rospy.get_name()+'/imu_topic', "/vectornav/IMU")
     yaw_pub_method = rospy.get_param(rospy.get_name()+ '/yaw_pub_method', 'Stable')
-    yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', 'Stable')
+    yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', True)
 
     global localizer, odom_pub
     localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)

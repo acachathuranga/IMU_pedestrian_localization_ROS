@@ -6,7 +6,7 @@ imu_topic: footIMU/IMU
     # Zupt : Yaw will be updated only at Foot Zero Velocity instances
     # Stable : Yaw will be updated when the foot is approximately horizontal 
                 # This will reduce Yaw distortions when foot inclined with respect to floor
-yaw_pub_method: Stable
+yaw_pub_method: Real
 # Yaw Publisher Latch
     # If true, odometry will keep publishing using last known Orientation, until an orientation update is available
     # If false, odometry is published only when an Orientation update is available
@@ -17,4 +17,4 @@ calibrate_yaw: false
 # Calibration Steps
     # Calibration will be performed considering readings upto this many walking steps
     # Applies both to roll-pitch calibration and yaw calibration
-calibration_steps: 2
+calibration_steps: 5

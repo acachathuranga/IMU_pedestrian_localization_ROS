@@ -12,7 +12,7 @@ class INS():
         "sigma_w": sigma_w,
         "g": 9.8029
             }
-        
+
         sigma_a = self.config["sigma_a"]
         sigma_w = self.config["sigma_w"]
         self.config["var_a"] = np.power(sigma_a,2)
@@ -133,7 +133,7 @@ class INS():
             x, P, q = self.Localizer.corrector(x, P, Rot) 
 
 
-        self.x[2] = -self.x[2] # TODO
+        # x[2] = -x[2] # TODO
         
         # Save variables
         self.x = x
