@@ -8,11 +8,17 @@ __pycache__/
 *.eps
 *.mat
 *.npy
+*.pkl
+*.tar
 
 # All data files in ros_data except one example file
 results/
 data/*
 !data/2020-03-23-17-15-36.csv
+!data/2020-03-27-14-13-37.csv
+!data/human_2020-07-01-15-27-07.csv
+!data/pretrained-models
+
 scripts/compare.py
 .vscode/
 

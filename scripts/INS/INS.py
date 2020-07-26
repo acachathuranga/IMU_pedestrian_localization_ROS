@@ -10,8 +10,11 @@ class INS():
         self.config = {
         "sigma_a": sigma_a,
         "sigma_w": sigma_w,
-        "g": 9.8029
+        "g": 9.575
             }
+        # "g": 9.8029   # Default
+        # "g": 9.775    # Waist IMU
+        # "g": 9.575    # Foot IMU
 
         sigma_a = self.config["sigma_a"]
         sigma_w = self.config["sigma_w"]
@@ -98,7 +101,7 @@ class INS():
         
         if zv is None and len(imudata) == self.W:  
             # Compute the trial's zero-velocity detection using the specified detector
-            zv = self.Localizer.compute_zv_lrt(np.asarray(imudata), G)
+            zv = self.Localizer.compute_zv_lrt(np.asarray(imudata))
         else:
             # Use a pre-computed zero-velocity estimate provided by arguments
             zv = zv

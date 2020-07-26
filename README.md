@@ -65,3 +65,6 @@ Refer 'yaw_pub_method' parameter in parameters.yaml file within config directory
 A demo application to read and publish odometry data from a CSV file is also provided. Configure the input CSV file directory and name in the demo.py file and run.
 >      python3 ./scripts/demo.py
 
+#### Note
+>       rostopic echo -b "fileName.bag" -p '/topicName' > "fileName.csv" # to generate the CSV file 
+

@@ -39,7 +39,7 @@ class pedestrian_localizer():
                                     pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
         """
 
-        self.ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="shoe", W=5)
+        self.ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="lstm", W=5)
         self.ins.init()
 
         self.callback = callback
@@ -73,13 +73,11 @@ class pedestrian_localizer():
                      zv
                         True / False
         """
-        # G_opt_shoe = 2.5e8
-        G_opt_shoe = 8e8
         if return_zv:
-            x, zv = self.ins.baseline(imu_reading=imu_reading, G=G_opt_shoe, return_zv=True)
+            x, zv = self.ins.baseline(imu_reading=imu_reading, return_zv=True)
             return x, zv
         else:
-            x = self.ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
+            x = self.ins.baseline(imu_reading=imu_reading)
             return x
 
     def update_step_count(self, zv, imu_reading):

@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
@@ -9,6 +9,7 @@ import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 import sys 
+import signal
 import rospkg
 from pedestrian_localizer import pedestrian_localizer
 import rospy
@@ -20,6 +21,14 @@ from INS.tools.csv_parser import readCSV, readROSBagCSV, writeCSV
 from INS.tools.data_visualizer import show3Dposition, show2Dposition, interactive2Dposition_init, update2Dposition, printProgressBar
 from INS.tools.geometry_utils import rotateOutput
 from INS.tools.geometry_helpers import euler2quat
+import signal
+
+shutdown = False
+
+def signal_handler(sig, frame):
+    print('User Interrupt: Ctrl+C!')
+    shutdown = True
+    sys.exit(0)
 
 def publish_odom(x, header):
     """ Publish Odometry Message
@@ -61,6 +70,7 @@ if __name__ == '__main__':
     print("Demo: " + fileName)
 
     ########## Initialization ###########
+    signal.signal(signal.SIGINT, signal_handler)
     rospy.init_node('imu_odometry_publisher', anonymous=True)
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
 
@@ -100,6 +110,10 @@ if __name__ == '__main__':
         data.angular_velocity.x = userData['field.angular_velocity.x'][i]
         data.angular_velocity.y = userData['field.angular_velocity.y'][i]
         data.angular_velocity.z = userData['field.angular_velocity.z'][i]
+
+        # Check shutdown condition
+        if shutdown:
+            sys.exit(0)
 
         # Estimate Odometry
         localizer.update_odometry(data)

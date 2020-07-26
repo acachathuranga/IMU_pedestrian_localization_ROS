@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
