@@ -39,7 +39,7 @@ class pedestrian_localizer():
                                     pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
         """
 
-        self.ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="lstm", W=5)
+        self.ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="shoe", W=5)
         self.ins.init()
 
         self.callback = callback
