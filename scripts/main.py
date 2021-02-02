@@ -29,6 +29,7 @@ def publish_odom(x, header):
         qw, qx, qy, qz =  euler2quat(roll, pitch, yaw, axes='sxyz')
         odom = Odometry()
         odom.header = header
+        odom.header.frame_id = 'odom'
         odom.pose.pose.position.x = x
         odom.pose.pose.position.y = y
         odom.pose.pose.position.z = z 
@@ -50,13 +51,13 @@ def imu_odometry():
     rospy.init_node('imu_odometry_publisher', anonymous=True)
 
     calibrate_yaw = rospy.get_param(rospy.get_name()+'/calibrate_yaw', True)
-    calibration_steps = rospy.get_param(rospy.get_name()+'/calibration_steps', 5)
+    calibration_distance = rospy.get_param(rospy.get_name()+'/calibration_distance', 2)
     imu_topic = rospy.get_param(rospy.get_name()+'/imu_topic', "/vectornav/IMU")
     yaw_pub_method = rospy.get_param(rospy.get_name()+ '/yaw_pub_method', 'Stable')
     yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', True)
 
     global localizer, odom_pub
-    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
+    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_distance=calibration_distance, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
 
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
     rospy.Subscriber(imu_topic, Imu, callback)

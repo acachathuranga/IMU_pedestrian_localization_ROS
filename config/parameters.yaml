@@ -1,5 +1,6 @@
 # MU Topic
 imu_topic: footIMU/IMU
+#imu_topic: waistIMU/IMU
 
 # Yaw Publishing Method
     # Real : IMU Yaw will be published. This will be the foot Yaw, not the Human Yaw
@@ -13,8 +14,8 @@ yaw_pub_method: Stable
 yaw_pub_latch: true
 
 # Calibrate yaw angle according to initial walking direction
-calibrate_yaw: false
-# Calibration Steps
-    # Calibration will be performed considering readings upto this many walking steps
-    # Applies both to roll-pitch calibration and yaw calibration
-calibration_steps: 2
+calibrate_yaw: true
+# Calibration Distance
+    # Calibration will be performed considering readings upto this walking distance
+    # Applies to yaw calibration
+calibration_distance: 2

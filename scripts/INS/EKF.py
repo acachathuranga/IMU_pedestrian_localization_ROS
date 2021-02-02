@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import linalg as LA
 from .detectors.shoe import SHOE
-from .detectors.lstm import LSTM
+# from .detectors.lstm import LSTM
 from .tools.geometry_helpers import quat2mat, mat2quat, euler2quat, quat2euler
 import sys
 
@@ -44,7 +44,8 @@ class Localizer():
             self.detector = SHOE(self.config)
 
         if (self.config['detector'] == 'lstm'):
-            self.detector = LSTM()
+            pass
+            # self.detector = LSTM()
             # self.detector = self.detector.cuda()
         # TODO if more detectors are added, add respective functions to create suitable detector object
 
