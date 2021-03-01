@@ -93,6 +93,8 @@ class INS():
 
             :return  State
                         pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+                     State Covariance Matrix
+                     ZV (Optional)
 
         """
         imudata = self.input_window(imu_reading)
@@ -144,9 +146,9 @@ class INS():
         self.P = P
 
         if return_zv:
-            return self.x, zv
+            return self.x, self.P, zv
         else:
-            return self.x
+            return self.x, self.P
     
 
 if __name__ == '__main__':
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     ins.init()
 
     for i in range (10):
-        x = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
+        x, p = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
         print (x[0])
         imu_reading.header.stamp.secs += 1
     

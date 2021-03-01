@@ -18,7 +18,7 @@ from pedestrian_localizer import pedestrian_localizer
 localizer = None
 odom_pub = None
 
-def publish_odom(x, header):
+def publish_odom(x, p, header):
     """ Publish Odometry Message
 
         :param x: State
