@@ -115,9 +115,9 @@ class INS():
         else:
             # Input data window not sufficient for processing
             if return_zv:
-                return self.x, zv
+                return self.x, self.P, zv
             else:
-                return self.x
+                return self.x, self.P
 
         x_data = imudata[-1][1:]
 

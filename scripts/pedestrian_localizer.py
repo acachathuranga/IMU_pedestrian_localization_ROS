@@ -82,7 +82,7 @@ class pedestrian_localizer():
         """
         if return_zv:
             x, p, zv = self.ins.baseline(imu_reading=imu_reading, return_zv=True)
-            return x, zv
+            return x, p, zv
         else:
             x, p = self.ins.baseline(imu_reading=imu_reading)
             return x, p
