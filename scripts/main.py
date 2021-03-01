@@ -12,6 +12,7 @@ import sys
 from sensor_msgs.msg import Imu 
 from nav_msgs.msg import Odometry
 from INS.tools.geometry_helpers import euler2quat
+import numpy as np
 
 from pedestrian_localizer import pedestrian_localizer
 
@@ -40,6 +41,18 @@ def publish_odom(x, p, header):
         odom.twist.twist.linear.x = vel_x
         odom.twist.twist.linear.y = vel_y
         odom.twist.twist.linear.z = vel_z
+
+        pose_covariance = np.zeros((6,6))
+        pose_covariance[:3, :3] = p[:3, :3]
+        pose_covariance[:3, 3:] = p[:3, 6:]
+        pose_covariance[3:, :3] = p[6:, :3]
+        pose_covariance[3:, 3:] = p[6:, 6:]
+        odom.pose.covariance = pose_covariance.reshape(-1).tolist()
+
+        twist_covariance = np.zeros((6,6))
+        twist_covariance[:3, :3] = p[3:6, 3:6]
+        odom.twist.covariance = twist_covariance.reshape(-1).tolist()
+
         odom_pub.publish(odom)
 
 def callback(imu_reading):
