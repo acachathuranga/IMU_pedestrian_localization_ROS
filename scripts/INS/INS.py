@@ -112,6 +112,7 @@ class INS():
             time = imudata[-1][0] 
             prev_time = imudata[-2][0]
             dt = time - prev_time    # dt = time difference between last and current readings
+            #dt = 1.0/200            # Hardcode the data rate here. Ex: If sensor rate is 200Hz, dt = 1.0/200
         else:
             # Input data window not sufficient for processing
             if return_zv:

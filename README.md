@@ -62,9 +62,26 @@ Refer 'yaw_pub_method' parameter in parameters.yaml file within config directory
 
 ### Demo
 
-A demo application to read and publish odometry data from a CSV file is also provided. Configure the input CSV file directory and name in the demo.py file and run.
->      python3 ./scripts/demo.py
+A demo application to read and publish odometry data from a CSV file is also provided.
 
+Copy the IMU data CSV file to **"/data/"** folder. The CSV file name can be given as program input arguments or else can be edited in **line72 of demo.py** file.
+
+##### Note: The CSV file should be run from within the main directory
+
+The program can be run in any of the following ways
+>      python3 ./scripts/demo.py    # To run default CSV, set in demo.py line 72
+>      python3 ./scripts/demo.py human_2020-07-01-15-27-07
+>      python3 ./scripts/demo.py human_2020-07-01-15-27-07.csv
+
+The output trajectory will be automatically saved to **"/results/"** folder, as a CSV file and also 2D image.
+
+Use the following command to generate data CSV file from IMU data ROS bag file. 
 #### Note
 >       rostopic echo -b "fileName.bag" -p '/topicName' > "fileName.csv" # to generate the CSV file 
+
+### IMU Data Rate Adjustment (Important)
+
+The program automatically detects the IMU data rate (Ex: 40Hz, 200Hz) from the data time-stamps. However, if there are communication delays in the data; better results can be obtained by using a fixed value (hardcoding) the data rate.
+
+To do this, uncomment **line 115 in /scripts/INS.py** file and set the IMU sensor sample rate.
 

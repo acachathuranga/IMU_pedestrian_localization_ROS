@@ -165,11 +165,11 @@ class pedestrian_localizer():
                     a_x += reading.linear_acceleration.x
                     a_y += reading.linear_acceleration.y
                     a_z += reading.linear_acceleration.z
-
-            roll = np.arctan2(a_y, a_z)
-            pitch = np.arctan2(a_x, np.sqrt(a_y*a_y + a_z*a_z))
+            
+            roll = np.arctan2(-a_y, -a_z)
+            pitch = np.arctan2(-a_x, -np.sqrt(a_y*a_y + a_z*a_z))
             yaw = 0.0
-
+             
             # Resetting INS and initializing pose
             self.ins.init_pose(position=(0,0,0), orientation=(roll, pitch, yaw))
             self.IMU_orientation[0:2] = roll, pitch
@@ -179,7 +179,7 @@ class pedestrian_localizer():
             print ("IMU on foot: roll= ", int(roll*180/np.pi), "degrees     pitch= ", int(pitch*180/np.pi), "degrees")
             self.rp_calibrated = True
 
-        if ((self.rp_calibrated) and (np.linalg.norm(x[:2]) >= self.calibration_distance)):
+        if ((self.rp_calibrated) and ((np.linalg.norm(x[:2]) >= self.calibration_distance) or (not self.calibrate_yaw))):
             # Yaw Calibration
             _, last_x, _, _ = self.calibration_readings[-1]
             if self.calibrate_yaw:
@@ -195,8 +195,11 @@ class pedestrian_localizer():
                     self.callback(x_, p, reading.header)
 
             # Calibration complete
-            print ("Yaw Calibration Successfull")
-            print ("IMU on foot: yaw= ", int(self.IMU_orientation[2]*180/np.pi), "degrees")
+            if self.calibrate_yaw:
+            	print ("Yaw Calibration Successfull")
+            	print ("IMU on foot: yaw= ", int(self.IMU_orientation[2]*180/np.pi), "degrees")
+            else:
+                print ("Yaw Calibration disabled")
             self.calibrated = True
 
     def update_human_yaw(self, x, zv):
