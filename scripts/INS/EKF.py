@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import linalg as LA
 from .detectors.shoe import SHOE
+# from .detectors.lstm import LSTM
 from .tools.geometry_helpers import quat2mat, mat2quat, euler2quat, quat2euler
 import sys
 
@@ -18,27 +19,34 @@ class Localizer():
         self.config = config
 
     def init_variables(self, position=(0,0,0), attitude=(0,0,0)):
-        if (self.config['detector'] == "shoe"):
-            x = np.zeros((9))   # initialize state window
-            q = np.zeros((4))   # initialize quaternion window
+        x = np.zeros((9))   # initialize state window
+        q = np.zeros((4))   # initialize quaternion window
 
-            x[0:3] = position
-            # Note: Since initial heading is explicitly set, Initial odometry will have a slight Z plane drift
-            x[6:9] = attitude
-            roll, pitch, heading = attitude
-            q = euler2quat(roll, pitch, heading, 'sxyz')
+        x[0:3] = position
+        # Note: Since initial heading is explicitly set, Initial odometry will have a slight Z plane drift
+        x[6:9] = attitude
+        roll, pitch, heading = attitude
+        q = euler2quat(roll, pitch, heading, 'sxyz')
 
-            P = np.zeros((9,9)) #initial covariance matrix P
-            P[0:3,0:3] = np.power(1e-5,2)*np.identity(3) #position (x,y,z) variance
-            P[3:6,3:6] = np.power(1e-5,2)*np.identity(3) #velocity (x,y,z) variance
-            P[6:9,6:9] = np.power(0.1*np.pi/180,2)*np.identity(3) #np.power(0.1*np.pi/180,2)*np.identity(3)
-            return x, q, P
+        P = np.zeros((9,9)) #initial covariance matrix P
+        P[0:3,0:3] = np.power(1e-5,2)*np.identity(3) #position (x,y,z) variance
+        P[3:6,3:6] = np.power(1e-5,2)*np.identity(3) #velocity (x,y,z) variance
+        P[6:9,6:9] = np.power(0.1*np.pi/180,2)*np.identity(3) #np.power(0.1*np.pi/180,2)*np.identity(3)
+        return x, q, P
 
     def init(self):
         # Initialize Detector
         if (self.config['detector'] == "shoe"):
+            #### SHOE Detector Thresholds ####
+            # G_opt_shoe = 2.5e8
+            G_opt_shoe = 2.5e8 #8e8
+            self.config["G_opt_shoe"] = G_opt_shoe
             self.detector = SHOE(self.config)
 
+        if (self.config['detector'] == 'lstm'):
+            pass
+            # self.detector = LSTM()
+            # self.detector = self.detector.cuda()
         # TODO if more detectors are added, add respective functions to create suitable detector object
 
         # Initialize states
@@ -65,8 +73,8 @@ class Localizer():
         """ Z axis is considered as pointing upwards. Hence gravity is positive acceleration """
 
         x_out[3:6] += dt*acc_n #velocity update
-        # x_out[0:3] += dt*x_out[3:6] +0.5*np.power(dt,2)*acc_n #position update
-        x_out[0:3] += dt*xin[3:6] +0.5*np.power(dt,2)*acc_n #position update
+        # x_out[0:3] += dt*x_out[3:6] + 0.5*np.power(dt,2)*acc_n #position update
+        x_out[0:3] += dt*xin[3:6] + 0.5*np.power(dt,2)*acc_n #position update
         
         return x_out, q_out, Rot_out  
 
@@ -94,7 +102,7 @@ class Localizer():
         q=mat2quat(Rot)   
         dx = K.dot(z) 
         x_check += dx  ###inject position and velocity error
-         
+
         omega[0:3,0:3] = [[0,-dx[8], dx[7]],[dx[8],0,-dx[6]],[-dx[7],dx[6],0]] 
         Rot = (eye3+omega).dot(Rot)
         q = mat2quat(Rot)
@@ -104,7 +112,7 @@ class Localizer():
         P_check = (P_check + P_check.T)/2
         return x_check, P_check, q
        
-    def compute_zv_lrt(self, x_in, G=3e8, return_zv=True):
+    def compute_zv_lrt(self, x_in, return_zv=True):
         """ Calculates Zero Velocity Update binary value (True / False)
 
             :param x_in: IMU Data time window
@@ -112,11 +120,9 @@ class Localizer():
                         - Rows : Number of records in window
             :return ZuPT boolean value (True - Zero Velocity)
         """
-
-        zv = self.detector.estimate(x_in)
+        zv = self.detector(x_in)
 
         if return_zv:
-            zv=zv<G
-        return zv
+            return zv
 
         

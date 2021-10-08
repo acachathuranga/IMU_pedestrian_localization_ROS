@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 
 # Install packages to use Python3 with ROS 
 # sudo apt-get install python3-yaml
@@ -12,13 +12,14 @@ import sys
 from sensor_msgs.msg import Imu 
 from nav_msgs.msg import Odometry
 from INS.tools.geometry_helpers import euler2quat
+import numpy as np
 
 from pedestrian_localizer import pedestrian_localizer
 
 localizer = None
 odom_pub = None
 
-def publish_odom(x, header):
+def publish_odom(x, p, header):
     """ Publish Odometry Message
 
         :param x: State
@@ -29,6 +30,7 @@ def publish_odom(x, header):
         qw, qx, qy, qz =  euler2quat(roll, pitch, yaw, axes='sxyz')
         odom = Odometry()
         odom.header = header
+        odom.header.frame_id = 'odom'
         odom.pose.pose.position.x = x
         odom.pose.pose.position.y = y
         odom.pose.pose.position.z = z 
@@ -39,6 +41,18 @@ def publish_odom(x, header):
         odom.twist.twist.linear.x = vel_x
         odom.twist.twist.linear.y = vel_y
         odom.twist.twist.linear.z = vel_z
+
+        pose_covariance = np.zeros((6,6))
+        pose_covariance[:3, :3] = p[:3, :3]
+        pose_covariance[:3, 3:] = p[:3, 6:]
+        pose_covariance[3:, :3] = p[6:, :3]
+        pose_covariance[3:, 3:] = p[6:, 6:]
+        odom.pose.covariance = pose_covariance.reshape(-1).tolist()
+
+        twist_covariance = np.zeros((6,6))
+        twist_covariance[:3, :3] = p[3:6, 3:6]
+        odom.twist.covariance = twist_covariance.reshape(-1).tolist()
+
         odom_pub.publish(odom)
 
 def callback(imu_reading):
@@ -50,13 +64,13 @@ def imu_odometry():
     rospy.init_node('imu_odometry_publisher', anonymous=True)
 
     calibrate_yaw = rospy.get_param(rospy.get_name()+'/calibrate_yaw', True)
-    calibration_steps = rospy.get_param(rospy.get_name()+'/calibration_steps', True)
+    calibration_distance = rospy.get_param(rospy.get_name()+'/calibration_distance', 2)
     imu_topic = rospy.get_param(rospy.get_name()+'/imu_topic', "/vectornav/IMU")
     yaw_pub_method = rospy.get_param(rospy.get_name()+ '/yaw_pub_method', 'Stable')
-    yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', 'Stable')
+    yaw_pub_latch = rospy.get_param(rospy.get_name()+ '/yaw_pub_latch', True)
 
     global localizer, odom_pub
-    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_steps=calibration_steps, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
+    localizer = pedestrian_localizer(calibrate_yaw=calibrate_yaw, calibration_distance=calibration_distance, yaw_method=yaw_pub_method, yaw_latch=yaw_pub_latch, callback=publish_odom)
 
     odom_pub = rospy.Publisher('imu_odometry', Odometry, queue_size=100)
     rospy.Subscriber(imu_topic, Imu, callback)

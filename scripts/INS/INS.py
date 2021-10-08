@@ -10,9 +10,12 @@ class INS():
         self.config = {
         "sigma_a": sigma_a,
         "sigma_w": sigma_w,
-        "g": 9.8029
+        "g": 9.575
             }
-        
+        # "g": 9.8029   # Default
+        # "g": 9.775    # Waist IMU
+        # "g": 9.575    # Foot IMU
+
         sigma_a = self.config["sigma_a"]
         sigma_w = self.config["sigma_w"]
         self.config["var_a"] = np.power(sigma_a,2)
@@ -90,6 +93,8 @@ class INS():
 
             :return  State
                         pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+                     State Covariance Matrix
+                     ZV (Optional)
 
         """
         imudata = self.input_window(imu_reading)
@@ -98,7 +103,7 @@ class INS():
         
         if zv is None and len(imudata) == self.W:  
             # Compute the trial's zero-velocity detection using the specified detector
-            zv = self.Localizer.compute_zv_lrt(np.asarray(imudata), G)
+            zv = self.Localizer.compute_zv_lrt(np.asarray(imudata))
         else:
             # Use a pre-computed zero-velocity estimate provided by arguments
             zv = zv
@@ -107,12 +112,13 @@ class INS():
             time = imudata[-1][0] 
             prev_time = imudata[-2][0]
             dt = time - prev_time    # dt = time difference between last and current readings
+            #dt = 1.0/200            # Hardcode the data rate here. Ex: If sensor rate is 200Hz, dt = 1.0/200
         else:
             # Input data window not sufficient for processing
             if return_zv:
-                return self.x, zv
+                return self.x, self.P, zv
             else:
-                return self.x
+                return self.x, self.P
 
         x_data = imudata[-1][1:]
 
@@ -133,7 +139,7 @@ class INS():
             x, P, q = self.Localizer.corrector(x, P, Rot) 
 
 
-        self.x[2] = -self.x[2] # TODO
+        # x[2] = -x[2] # TODO
         
         # Save variables
         self.x = x
@@ -141,9 +147,9 @@ class INS():
         self.P = P
 
         if return_zv:
-            return self.x, zv
+            return self.x, self.P, zv
         else:
-            return self.x
+            return self.x, self.P
     
 
 if __name__ == '__main__':
@@ -176,7 +182,7 @@ if __name__ == '__main__':
     ins.init()
 
     for i in range (10):
-        x = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
+        x, p = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
         print (x[0])
         imu_reading.header.stamp.secs += 1
     

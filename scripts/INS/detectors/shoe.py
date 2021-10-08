@@ -12,6 +12,9 @@ class SHOE():
                                 - var_w : Angular velocity variance
         """
         self.config = config
+    
+    def __call__(self, imu_data):
+        return self.estimate(imu_data)
 
     def estimate(self, imu_data):
         """ Estimate Zero Velocity Update condition given a IMU data window
@@ -25,7 +28,7 @@ class SHOE():
         inv_a = (1/self.config["var_a"])
         inv_w = (1/self.config["var_w"])
         g = self.config["g"]
-        
+        G_opt = self.config["G_opt_shoe"]
         acc = imu_data[:,1:4]
         gyro = imu_data[:,4:7]
         smean_a = np.mean(acc, axis=0)
@@ -38,7 +41,8 @@ class SHOE():
             zupt += inv_a*np.dot((acc[s]-g_comp), (acc[s]-g_comp).T) + inv_w*np.dot(gyro[s], gyro[s].T)
 
         zupt = zupt/window_size
-        return zupt
+        zv = zupt < G_opt
+        return zv
         
     
 if __name__ == '__main__':

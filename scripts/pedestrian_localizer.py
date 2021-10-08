@@ -1,4 +1,5 @@
 import rospy
+import copy
 import numpy as np
 import math
 from INS.INS import INS
@@ -6,6 +7,7 @@ import rospy
 from sensor_msgs.msg import Imu 
 
 from INS.tools.geometry_utils import rotateOutput
+from INS.tools.geometry_helpers import euler2mat
 
 class pedestrian_localizer():
     # Global constants
@@ -15,11 +17,11 @@ class pedestrian_localizer():
     STOPPING = 3
     INVALID = 4
 
-    def __init__(self, calibrate_yaw=False, calibration_steps=2, yaw_method='Stable', yaw_latch=True, callback=None):
+    def __init__(self, calibrate_yaw=False, calibration_distance=2, yaw_method='Stable', yaw_latch=True, callback=None):
         """ Pedestrian Localization system
 
             :param calibrate_yaw: If set to True, initial yaw will be calculated from the first few steps within a fixed displacement
-            :param calibration_steps: Number for initial steps to wait until Calibration is started. 
+            :param calibration_distance: Distance to walk until Calibration is complete. 
                                         Collection data points upto this time will be used for calibration.
             :param yaw_method: Yaw Publishing Method
                                 Human Yaw is different from Foot Yaw. Foot Yaw keeps changing drastically even when walking straight. 
@@ -36,6 +38,8 @@ class pedestrian_localizer():
                                 at each imu_reading
                                 - State
                                     pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+                                - State Covariance
+                                - Current IMU Reading Header
         """
 
         self.ins = INS(sigma_a = 0.00098, sigma_w = 8.7266463e-5, detector="shoe", W=5)
@@ -44,11 +48,13 @@ class pedestrian_localizer():
         self.callback = callback
 
         self.step_count = 0
-        self.calibration_steps = calibration_steps
-        self.calibration_readings = [] 
+        self.calibration_distance = calibration_distance
+        self.calibration_readings = []
 
+        self.rp_calibrated = False
         self.calibrated = False
         self.calibrate_yaw = calibrate_yaw
+        self.yaw_correction_matrix = np.identity(3)
 
         self.step_state = self.INVALID
         self.state_timeStamp = 0.0
@@ -68,17 +74,18 @@ class pedestrian_localizer():
             :param return_zv: Return calculated Zero Velocity status for current imu_reading
             :return  State
                         pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+                     
+                     State Covariance
 
-                     zv
+                     (optional) zv
                         True / False
         """
-        G_opt_shoe = 2.5e8
         if return_zv:
-            x, zv = self.ins.baseline(imu_reading=imu_reading, G=G_opt_shoe, return_zv=True)
-            return x, zv
+            x, p, zv = self.ins.baseline(imu_reading=imu_reading, return_zv=True)
+            return x, p, zv
         else:
-            x = self.ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
-            return x
+            x, p = self.ins.baseline(imu_reading=imu_reading)
+            return x, p
 
     def update_step_count(self, zv, imu_reading):
         """ Updates and returns current step count
@@ -131,53 +138,68 @@ class pedestrian_localizer():
         else: 
             self.step_state = self.INVALID
 
-    def calibrate(self, imu_reading, x):
+    def calibrate(self, imu_reading, x, p, zv):
         """  Calculates Roll, Pitch and Yaw initial values
 
             :param imu_reading: IMU reading ros msg
             :param x: State
                        pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+            :param p: State Covariance
+            :param zv: Zero velocity status
 
             Roll, Pitch angles are calculated perpendicular to gravity vector
             Yaw angle is caculated according to the direction of initial motion
+
+            Updated Note: Now calibration is only done for zero velocity readings only
         """
-        self.calibration_readings.append(imu_reading)
+        self.calibration_readings.append([copy.deepcopy(imu_reading), x, p, zv])
 
-        # Start calibration if calibration step count has reached
-        if (self.step_count >= self.calibration_steps):
-
+        # Start roll / pitch calibration if 100 zero velocity readings has been registered
+        if ((not self.rp_calibrated) and (len(self.calibration_readings) > 100)):
             # Roll and Pitch Calibration
             a_x = 0.0
             a_y = 0.0
             a_z = 0.0
-            for reading in self.calibration_readings:
-                a_x += reading.linear_acceleration.x
-                a_y += reading.linear_acceleration.y
-                a_z += reading.linear_acceleration.z
-
-            roll = np.arctan2(a_y, a_z)
-            pitch = np.arctan2(a_x, np.sqrt(a_y*a_y + a_z*a_z))
+            for reading, x, _, zv in self.calibration_readings:
+                if zv:
+                    a_x += reading.linear_acceleration.x
+                    a_y += reading.linear_acceleration.y
+                    a_z += reading.linear_acceleration.z
+            
+            roll = np.arctan2(-a_y, -a_z)
+            pitch = np.arctan2(-a_x, -np.sqrt(a_y*a_y + a_z*a_z))
             yaw = 0.0
-
+             
             # Resetting INS and initializing pose
             self.ins.init_pose(position=(0,0,0), orientation=(roll, pitch, yaw))
             self.IMU_orientation[0:2] = roll, pitch
 
+            # Calibration complete
+            print ("Roll-Pitch Calibration Successfull")
+            print ("IMU on foot: roll= ", int(roll*180/np.pi), "degrees     pitch= ", int(pitch*180/np.pi), "degrees")
+            self.rp_calibrated = True
+
+        if ((self.rp_calibrated) and ((np.linalg.norm(x[:2]) >= self.calibration_distance) or (not self.calibrate_yaw))):
             # Yaw Calibration
+            _, last_x, _, _ = self.calibration_readings[-1]
             if self.calibrate_yaw:
-                pass
-                # TODO 
+                yaw = math.atan2(last_x[1], last_x[0])
+                self.IMU_orientation[2] = -yaw
+                self.yaw_correction_matrix = euler2mat(0, 0, -yaw)
 
             # Recalculating previous odometry
-            for reading in self.calibration_readings:
-                x, zv = self.update_foot_state(reading, return_zv=True)
-                status, x = self.update_human_yaw(x, zv)
+            for reading, x, p, zv in self.calibration_readings:
+                # x_, p, zv_ = self.update_foot_state(reading, return_zv=True)
+                status, x_ = self.update_human_yaw(x, zv)
                 if status and (self.callback is not None):
-                    self.callback(x, reading.header)
+                    self.callback(x_, p, reading.header)
 
             # Calibration complete
-            print ("Calibration Successfull")
-            print ("IMU Orientation on foot: roll= ", int(roll*180/np.pi), "degrees     pitch= ", int(pitch*180/np.pi), "degrees")
+            if self.calibrate_yaw:
+            	print ("Yaw Calibration Successfull")
+            	print ("IMU on foot: yaw= ", int(self.IMU_orientation[2]*180/np.pi), "degrees")
+            else:
+                print ("Yaw Calibration disabled")
             self.calibrated = True
 
     def update_human_yaw(self, x, zv):
@@ -193,34 +215,37 @@ class pedestrian_localizer():
             :warning: Use this method only for publishing. Do not use the return value of this method for any INS processing 
         """
         status = False
-        x[6:9] = self.angleNormalizer(x[6:9] + self.IMU_orientation)
+        x_ = copy.copy(x)
+        x_[6:9] = self.angleNormalizer(x[6:9] + self.IMU_orientation)
         if self.yaw_method == 'Real':
             status = True
         elif self.yaw_method == 'Zupt':
             if zv:
                 # Zero Velocity. Updating Yaw
-                self.human_orientation = x[6:9]
+                self.human_orientation = x_[6:9]
                 status = True
             elif self.yaw_latch:
                 # Nonzero Velocity. Latched yaw : returning last known valid yaw
-                x[6:9] = self.human_orientation
+                x_[6:9] = self.human_orientation
                 status = True
 
             # Else: Nonezero Velocity. Not using past yaw data. status = False
         elif self.yaw_method == 'Stable':
-            if np.max(np.fabs(x[7])) < 0.15: # Approximately 8.6 Degrees
+            if np.max(np.fabs(x_[7])) < 0.15: # Approximately 8.6 Degrees
                 # Stable Foot roll & pitch. Updating Yaw
-                self.human_orientation = x[6:9]
+                self.human_orientation = x_[6:9]
                 status = True
             elif self.yaw_latch:
                 # Unstable Foot roll & pitch. Latched yaw : returning last known valid yaw
-                x[6:9] = self.human_orientation
+                x_[6:9] = self.human_orientation
                 status = True
             # Else: Unstalbe Foot yaw. Not using path yaw data. status = False
         else:
             rospy.logerr("Pedestrian_Localizer: Unknown yaw_method")
         
-        return status, x
+        # Yaw correction
+        x_[:3] = np.dot(self.yaw_correction_matrix, x_[:3])
+        return status, x_
 
     def angleNormalizer(self, angle):
         """Converting angle between -PI and PI
@@ -234,15 +259,15 @@ class pedestrian_localizer():
         return angle
 
     def update_odometry(self, imu_reading, odometry_publisher=None):
-        x, zv = self.update_foot_state(imu_reading, return_zv=True)
+        x, p, zv = self.update_foot_state(imu_reading, return_zv=True)
         self.update_step_count(zv=zv, imu_reading=imu_reading)
 
         if self.calibrated == False:      
-            self.calibrate(imu_reading, x)
+            self.calibrate(imu_reading, x, p, zv)
         else:
             status, x = self.update_human_yaw(x, zv)
             if status and (self.callback is not None):
-                self.callback(x, imu_reading.header)
+                self.callback(x, p, imu_reading.header)
         
 
     
