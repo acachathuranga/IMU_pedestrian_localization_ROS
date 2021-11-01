@@ -536,3 +536,45 @@ def MatrixExp6(se3mat):
                                     * np.dot(omgmat,omgmat),
                                   se3mat[0: 3, 3]) / theta],
                      [[0, 0, 0, 1]]]
+
+def TransToRp(T):
+    """Converts a homogeneous transformation matrix into a rotation matrix
+    and position vector
+    :param T: A homogeneous transformation matrix
+    :return R: The corresponding rotation matrix,
+    :return p: The corresponding position vector.
+    Example Input:
+        T = np.array([[1, 0,  0, 0],
+                      [0, 0, -1, 0],
+                      [0, 1,  0, 3],
+                      [0, 0,  0, 1]])
+    Output:
+        (np.array([[1, 0,  0],
+                   [0, 0, -1],
+                   [0, 1,  0]]),
+         np.array([0, 0, 3]))
+    """
+    T = np.array(T)
+    return T[0: 3, 0: 3], T[0: 3, 3]
+
+def Adjoint(T):
+    """Computes the adjoint representation of a homogeneous transformation
+    matrix
+    :param T: A homogeneous transformation matrix
+    :return: The 6x6 adjoint representation [AdT] of T
+    Example Input:
+        T = np.array([[1, 0,  0, 0],
+                      [0, 0, -1, 0],
+                      [0, 1,  0, 3],
+                      [0, 0,  0, 1]])
+    Output:
+        np.array([[1, 0,  0, 0, 0,  0],
+                  [0, 0, -1, 0, 0,  0],
+                  [0, 1,  0, 0, 0,  0],
+                  [0, 0,  3, 1, 0,  0],
+                  [3, 0,  0, 0, 0, -1],
+                  [0, 0,  0, 0, 1,  0]])
+    """
+    R, p = TransToRp(T)
+    return np.r_[np.c_[R, np.zeros((3, 3))],
+                 np.c_[np.dot(VecToso3(p), R), R]]

@@ -137,12 +137,14 @@ class INS():
 
         #corrector
         if zv == True: 
-            TF, Twist, P = self.Localizer.corrector(TF, Twist, P) 
+            TF, Twist, P = self.Localizer.corrector(TF, Twist, P)
         
         # Save variables
         self.TF = TF
         self.Twist = Twist
         self.P = P
+
+        
 
         if return_zv:
             return self.TF, self.Twist, self.P, zv

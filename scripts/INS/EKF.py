@@ -2,7 +2,7 @@ import numpy as np
 from numpy import linalg as LA
 from .detectors.shoe import SHOE
 # from .detectors.lstm import LSTM
-from .tools.geometry_helpers import euler2mat, VecTose3, MatrixExp6
+from .tools.geometry_helpers import euler2mat, VecTose3, MatrixExp6, Adjoint
 import sys
 
 class Localizer():
@@ -26,12 +26,13 @@ class Localizer():
         tf[3,3] = 1
 
         # Note: Since initial heading is explicitly set, Initial odometry will have a slight Z plane drift
-        tf[:3, :3] = euler2mat(attitude) 
+        tf[:3, :3] = euler2mat(attitude[0], attitude[1], attitude[2]) 
 
         P = np.zeros((9,9)) #initial covariance matrix P
         P[0:3,0:3] = np.power(1e-5,2)*np.identity(3) #position (x,y,z) variance
         P[3:6,3:6] = np.power(1e-5,2)*np.identity(3) #velocity (x,y,z) variance
         P[6:9,6:9] = np.power(0.1*np.pi/180,2)*np.identity(3) #np.power(0.1*np.pi/180,2)*np.identity(3)
+
         return tf, twist, P
 
     def init(self):
@@ -55,16 +56,26 @@ class Localizer():
           
     def nav_eq(self, tf, twist, imu, dt):
         # New transform is calculated using previous twist
-        vel_se3 = VecTose3(twist)
+        # print(twist)
+        vel_se3 = VecTose3(twist.reshape(6,))
+        print(vel_se3 * dt)
         step_transform = MatrixExp6(vel_se3 * dt)
         tf = np.dot(tf, step_transform)
         
-        acc_n = tf[:3, :3].dot(imu[0:3])       #transform acc to navigation frame,  
-        acc_n = acc_n - np.array([0,0,self.config["g"]])   #removing gravity (by substracting)
+        # transform gravity to IMU frame
+        g_imu = np.dot(tf[:3, :3].T, np.array([0,0,self.config["g"]]))
         """ Z axis is considered as pointing upwards. Hence gravity is positive acceleration """
 
-        twist[0:3] += dt*acc_n # Linear velocity update
-        twist[3:6] = imu[3:6]  # Angular velocity update TODO
+        acc_n = imu[0:3] - g_imu    # Gravity removal
+        lin_vel = np.dot(tf[:3, :3].T, twist[0:3])  # Previous linear velocity in IMU frame
+        lin_vel += (acc_n * dt).reshape(3,1)   # new velocity calculation
+        
+        # IMU Frame twist
+        twist[0:3] = lin_vel
+        twist[3:6] = imu[3:6].reshape(3,1)  # Angular velocity reading
+
+        # Navigation Frame twist
+        twist = Adjoint(tf).dot(twist)
         
         return tf, twist  
 
@@ -91,7 +102,7 @@ class Localizer():
         # Only angular velocity is taken for error calculation since, our measurement is only angular velocity  
         dx = K.dot(z) 
         #inject position and velocity error
-        tf[3, :3] += dx[0:3]
+        tf[3, :3] += dx[0:3].reshape(3,)
         twist[:3] += dx[3:6]
 
         omega[0:3,0:3] = [[0,-dx[8], dx[7]],[dx[8],0,-dx[6]],[-dx[7],dx[6],0]] 

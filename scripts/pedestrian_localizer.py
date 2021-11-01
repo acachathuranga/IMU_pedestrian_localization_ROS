@@ -46,7 +46,7 @@ class pedestrian_localizer():
 
         self.rp_calibrated = False
         self.calibrated = False
-        self.calibrate_yaw = calibrate_yaw
+        self.calibrate_yaw = False
         self.yaw_correction_matrix = np.identity(3)
 
         # IMU roll, pitch and yaw are determined through calibration
@@ -93,7 +93,7 @@ class pedestrian_localizer():
             a_x = 0.0
             a_y = 0.0
             a_z = 0.0
-            for reading, x, _, zv in self.calibration_readings:
+            for reading, _, _, _, zv in self.calibration_readings:
                 if zv:
                     a_x += reading.linear_acceleration.x
                     a_y += reading.linear_acceleration.y
@@ -115,7 +115,7 @@ class pedestrian_localizer():
             # Flush initial calibration data points
             self.calibration_readings.clear()
 
-        if ((self.rp_calibrated) and ((np.linalg.norm(x[:2]) >= self.calibration_distance) or (not self.calibrate_yaw))):
+        if ((self.rp_calibrated) and ((np.linalg.norm(TF[3, :2]) >= self.calibration_distance) or (not self.calibrate_yaw))):
             # Yaw Calibration
             _, TF, Twist, _, _ = self.calibration_readings[-1]
             if self.calibrate_yaw:
@@ -150,6 +150,9 @@ class pedestrian_localizer():
             Note: Refer yaw_method and yaw_latch descriptions for details  
             :warning: Use this method only for publishing. Do not use the return value of this method for any INS processing 
         """
+        status = True
+        return status, TF
+
         status = False
         TF_ = copy.copy(TF)
         x_[6:9] = self.angleNormalizer(x[6:9] + self.IMU_orientation)

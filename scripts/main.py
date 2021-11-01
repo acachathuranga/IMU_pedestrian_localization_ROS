@@ -19,15 +19,17 @@ from pedestrian_localizer import pedestrian_localizer
 localizer = None
 odom_pub = None
 
-def publish_odom(x, p, header):
+def publish_odom(TF, Twist, p, header):
     """ Publish Odometry Message
 
-        :param x: State
-                       pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+        :param TF: Transformation Matrix
+        :param Twist: Twist vector [lin.x, lin.y, lin.z, ang.x, ang.y, ang.z]
+        :param p: Covariance matrix
     """
-    if x is not None:
-        x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw = x
-        qw, qx, qy, qz =  euler2quat(roll, pitch, yaw, axes='sxyz')
+    if TF is not None:
+        x, y, z = TF[3, :3]
+        vel_x, vel_y, vel_z = Twist[:3]
+        qw, qx, qy, qz =  mat2quat(TF[:3, :3])
         odom = Odometry()
         odom.header = header
         odom.header.frame_id = 'odom'
@@ -55,44 +57,6 @@ def publish_odom(x, p, header):
 
         odom_pub.publish(odom)
 
-def publish_odom(x, p, header, q=[0,0,0,0]):
-    """ Publish Odometry Message
-
-        :param x: State
-                       pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
-    """
-    if x is not None:
-        x, y, z, vel_x, vel_y, vel_z, roll, pitch, yaw = x
-        odom = Odometry()
-        odom.header = header
-        odom.header.frame_id = 'odom'
-        odom.pose.pose.position.x = x
-        odom.pose.pose.position.y = y
-        odom.pose.pose.position.z = z 
-
-        init_rot = euler2mat(-15/180*3.14, 149/180*3.14, -166/180*3.14)
-        rot = quat2mat(q)
-        rot = np.dot(rot, init_rot.T)
-        q = mat2quat(rot)
-        odom.pose.pose.orientation.x = q[0]
-        odom.pose.pose.orientation.y = q[1]
-        odom.pose.pose.orientation.z = q[2]
-        odom.pose.pose.orientation.w = q[3]
-        odom.twist.twist.linear.x = vel_x
-        odom.twist.twist.linear.y = vel_y
-        odom.twist.twist.linear.z = vel_z
-
-        pose_covariance = np.zeros((6,6))
-        pose_covariance[:3, :3] = p[:3, :3]
-        pose_covariance[:3, 3:] = p[:3, 6:]
-        pose_covariance[3:, :3] = p[6:, :3]
-        pose_covariance[3:, 3:] = p[6:, 6:]
-        odom.pose.covariance = pose_covariance.reshape(-1).tolist()
-
-        twist_covariance = np.zeros((6,6))
-        twist_covariance[:3, :3] = p[3:6, 3:6]
-        odom.twist.covariance = twist_covariance.reshape(-1).tolist()
-        odom_pub.publish(odom)
 
 def callback(imu_reading):
     localizer.update_odometry(imu_reading)
