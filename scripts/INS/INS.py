@@ -52,19 +52,19 @@ class INS():
         self.Localizer = Localizer(self.config)
 
     def init(self):
-        """ Initialize state variables x, q, P with initial position 0,0 and orientation 0,0,0
+        """ Initialize state variables TF, Twist, P with initial position 0,0 and orientation 0,0,0
         """
-        self.x, self.q, self.P = self.Localizer.init() #initialize state
+        self.TF, self.Twist, self.P = self.Localizer.init() #initialize state
         self.x_in.clear()
     
     def init_pose(self, position=(0.0, 0.0, 0.0), orientation=(0.0, 0.0, 0.0)):
-        """ Initializes position and orientation (x, q). Resets covariance matrix (P)
+        """ Initializes position,orientation and Twist (TF, Twist). Resets covariance matrix (P)
 
             :param position: Initial position x,y,z coordinates
             :param orientation: Initial orientation euler angles in roll, pitch, yaw format (xyz)
             :return None
         """
-        self.x, self.q , self.P = self.Localizer.init_variables(position=position, attitude=orientation)
+        self.TF, self.Twist, self.P = self.Localizer.init_variables(position=position, attitude=orientation)
         self.x_in.clear()
 
     def input_window(self, imu_reading):
@@ -92,7 +92,8 @@ class INS():
             :param zv: Zero Velocity Update status (True - Manually set this reading to a Zupt state)
 
             :return  State
-                        pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
+                        TF - Transformation matrix
+                        Twist - Twist matrix (lin.x, lin.y, lin.z, ang.x, ang.y, ang.z)
                      State Covariance Matrix
                      ZV (Optional)
 
@@ -116,40 +117,37 @@ class INS():
         else:
             # Input data window not sufficient for processing
             if return_zv:
-                return self.x, self.P, zv
+                return self.TF, self.Twist, self.P, zv
             else:
-                return self.x, self.P
+                return self.TF, self.Twist, self.P
 
         x_data = imudata[-1][1:]
 
         # Fetch variables
-        x = self.x
-        q = self.q
+        TF = self.TF
+        Twist = self.Twist
         P = self.P
 
         #update state through motion model
-        x, q, Rot = self.Localizer.nav_eq(x, x_data, q, dt)
-        F,G = self.Localizer.state_update(x_data, q, dt) 
+        TF, Twist = self.Localizer.nav_eq(TF, Twist, x_data, dt)
+        F,G = self.Localizer.state_update(x_data, TF, dt) 
 
         P = (F.dot(P)).dot(F.T) + (G.dot(self.Q)).dot(G.T)
         P = (P + P.T)/2 #make symmetric
 
         #corrector
         if zv == True: 
-            x, P, q = self.Localizer.corrector(x, P, Rot) 
-
-
-        # x[2] = -x[2] # TODO
+            TF, Twist, P = self.Localizer.corrector(TF, Twist, P) 
         
         # Save variables
-        self.x = x
-        self.q = q
+        self.TF = TF
+        self.Twist = Twist
         self.P = P
 
         if return_zv:
-            return self.x, self.P, zv
+            return self.TF, self.Twist, self.P, zv
         else:
-            return self.x, self.P
+            return self.TF, self.Twist, self.P
     
 
 if __name__ == '__main__':
@@ -182,8 +180,8 @@ if __name__ == '__main__':
     ins.init()
 
     for i in range (10):
-        x, p = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
-        print (x[0])
+        TF, Twist, p = ins.baseline(imu_reading=imu_reading, G=G_opt_shoe)
+        print (TF)
         imu_reading.header.stamp.secs += 1
     
         
