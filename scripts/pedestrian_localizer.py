@@ -7,7 +7,7 @@ import rospy
 from sensor_msgs.msg import Imu 
 
 from INS.tools.geometry_utils import rotateOutput
-from INS.tools.geometry_helpers import euler2mat
+from INS.tools.geometry_helpers import euler2mat, mat2euler
 
 class pedestrian_localizer():
     # Global constants
@@ -55,6 +55,7 @@ class pedestrian_localizer():
         self.calibrated = False
         self.calibrate_yaw = calibrate_yaw
         self.yaw_correction_matrix = np.identity(3)
+        self.rp_correction_matrix = np.identity(3)
 
         self.step_state = self.INVALID
         self.state_timeStamp = 0.0
@@ -173,11 +174,14 @@ class pedestrian_localizer():
             # Resetting INS and initializing pose
             self.ins.init_pose(position=(0,0,0), orientation=(roll, pitch, yaw))
             self.IMU_orientation[0:2] = roll, pitch
+            self.rp_correction_matrix = euler2mat(roll, pitch, 0)
 
             # Calibration complete
             print ("Roll-Pitch Calibration Successfull")
             print ("IMU on foot: roll= ", int(roll*180/np.pi), "degrees     pitch= ", int(pitch*180/np.pi), "degrees")
             self.rp_calibrated = True
+            # Flush RP calibration data
+            self.calibration_readings.clear()
 
         if ((self.rp_calibrated) and ((np.linalg.norm(x[:2]) >= self.calibration_distance) or (not self.calibrate_yaw))):
             # Yaw Calibration
@@ -190,7 +194,7 @@ class pedestrian_localizer():
             # Recalculating previous odometry
             for reading, x, p, zv in self.calibration_readings:
                 # x_, p, zv_ = self.update_foot_state(reading, return_zv=True)
-                status, x_ = self.update_human_yaw(x, zv)
+                status, x_ = self.update_human_pose(x, zv)
                 if status and (self.callback is not None):
                     self.callback(x_, p, reading.header)
 
@@ -202,8 +206,8 @@ class pedestrian_localizer():
                 print ("Yaw Calibration disabled")
             self.calibrated = True
 
-    def update_human_yaw(self, x, zv):
-        """ Approximates Human Yaw using Foot Yaw
+    def update_human_pose(self, x, zv):
+        """ Approximates Human Pose using IMU calibration (initial roll, pitch, yaw)
 
             :param x: State
                        pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, roll, pitch, yaw
@@ -216,7 +220,9 @@ class pedestrian_localizer():
         """
         status = False
         x_ = copy.copy(x)
-        x_[6:9] = self.angleNormalizer(x[6:9] + self.IMU_orientation)
+        Rot_imu = euler2mat(x[6], x[7], x[8]) # Heading in IMU frame
+        Rot = Rot_imu.dot(self.rp_correction_matrix.T)    # Heading in navigation frame
+        x_[6:9] = mat2euler(Rot)    # Update human roll, pitch, yaw
         if self.yaw_method == 'Real':
             status = True
         elif self.yaw_method == 'Zupt':
@@ -243,7 +249,7 @@ class pedestrian_localizer():
         else:
             rospy.logerr("Pedestrian_Localizer: Unknown yaw_method")
         
-        # Yaw correction
+        # Yaw correction (positional correction)
         x_[:3] = np.dot(self.yaw_correction_matrix, x_[:3])
         return status, x_
 
@@ -265,7 +271,7 @@ class pedestrian_localizer():
         if self.calibrated == False:      
             self.calibrate(imu_reading, x, p, zv)
         else:
-            status, x = self.update_human_yaw(x, zv)
+            status, x = self.update_human_pose(x, zv)
             if status and (self.callback is not None):
                 self.callback(x, p, imu_reading.header)
         
