@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 import sys
+import os
 
 """
     CSV Library to read comma seperated lists from generic CSV files and ROS Bag CSV exports
@@ -157,11 +158,12 @@ def writeCSV(data, fileName, fields=None):
         4,5,6
     """
     try:
+        os.makedirs(os.path.dirname(fileName), exist_ok=True)
         with open(fileName, mode='w') as output:
             if fields != None :
                 output.write("%" + ','.join(str(field) for field in fields) + '\n')
             for line in range(data.shape[0]):
                 output.write(','.join(str(value) for value in data[line,:]) + '\n')
             print ("Data written to " + fileName)
-    except:
-            print ("Output file writing error: ", sys.exc_info()[0])
+    except Exception as ex:
+            print ("Output file writing error: ", sys.exc_info()[0], ": ", str(ex))
