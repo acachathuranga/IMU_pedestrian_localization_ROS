@@ -46,7 +46,11 @@ def publish_odom(x, p, header):
     """
     global x_out
     if x is not None:
-        x_out.append([x, header])
+        state = np.zeros((15))
+        state[0:9] = x
+        state[9:12] = np.diagonal(p)[0:3]      # Position variance
+        state[12:15] = np.diagonal(p)[6:9]     # Orientation variance
+        x_out.append([state, header])
 
         if ros_enabled:
             pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, roll, pitch, yaw = x
@@ -147,20 +151,22 @@ if __name__ == '__main__':
         localizer.update_odometry(data)
         printProgressBar(i, dataSteps, 'Progress', 'Complete', length=50)
     
-    output = np.zeros((len(x_out), 10))
+    output = np.zeros((len(x_out), 16))
 
     # Rotate and generate output
     for i in range(len(x_out)):
         #output[i,1:10] = rotateOutput(x_out[i][0], roll=math.pi, pitch=0, yaw=0)
-        output[i,1:10] = x_out[i][0]
+        output[i,1:16] = x_out[i][0]
         output[i,0] = x_out[i][1].stamp.secs +  x_out[i][1].stamp.nsecs * 1e-9
 
     writeCSV(output, os.path.join(result_dir, fileName+'.csv'), fields=['time', 
                                                         'x_position', 'y_position', 'z_position', 
                                                         'vel_x', 'vel_y', 'vel_z',
-                                                        'roll', 'pitch', 'yaw',])
-    show2Dposition(output[:,1:], result_dir+fileName)
-    show3Dposition(output[:,1:])
+                                                        'roll', 'pitch', 'yaw',
+                                                        'var.x', 'var.y', 'var.z',
+                                                        'var.roll', 'var.pitch', 'var.yaw'])
+    show2Dposition(output[:,1:10], result_dir+fileName)
+    show3Dposition(output[:,1:10])
 
     rospy.loginfo("Execution Complete")
 
